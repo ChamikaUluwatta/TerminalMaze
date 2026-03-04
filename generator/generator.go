@@ -6,10 +6,10 @@ import (
 
 type Cell struct {
 	visited bool
-	left    bool
-	right   bool
-	up      bool
-	down    bool
+	Left    bool
+	Right   bool
+	Up      bool
+	Down    bool
 }
 
 type Point struct {
@@ -32,10 +32,10 @@ func cellGenerator(size int) [][]Cell {
 		twoDArray[i] = make([]Cell, size)
 		for j := range twoDArray[i] {
 			twoDArray[i][j] = Cell{
-				left:  true,
-				right: true,
-				up:    true,
-				down:  true,
+				Left:  true,
+				Right: true,
+				Up:    true,
+				Down:  true,
 			}
 		}
 	}
@@ -113,16 +113,16 @@ func traversalDfs(grid *[][]Cell, x, y int) {
 
 func getPassableNeighbors(grid *[][]Cell, x, y int) []Point {
 	var neighbors []Point
-	if x > 0 && !(*grid)[x][y].up {
+	if x > 0 && !(*grid)[x][y].Up {
 		neighbors = append(neighbors, Point{x - 1, y})
 	}
-	if x < len(*grid)-1 && !(*grid)[x][y].down {
+	if x < len(*grid)-1 && !(*grid)[x][y].Down {
 		neighbors = append(neighbors, Point{x + 1, y})
 	}
-	if y > 0 && !(*grid)[x][y].left {
+	if y > 0 && !(*grid)[x][y].Left {
 		neighbors = append(neighbors, Point{x, y - 1})
 	}
-	if y < len((*grid)[0])-1 && !(*grid)[x][y].right {
+	if y < len((*grid)[0])-1 && !(*grid)[x][y].Right {
 		neighbors = append(neighbors, Point{x, y + 1})
 	}
 	return neighbors
@@ -149,16 +149,16 @@ func removeWall(grid *[][]Cell, current Point, next Point) {
 	//x+1 = down, x-1 = up, y+1 = right, y-1 = left
 
 	if current.x+1 == next.x {
-		(*grid)[current.x][current.y].down = false
-		(*grid)[next.x][next.y].up = false
+		(*grid)[current.x][current.y].Down = false
+		(*grid)[next.x][next.y].Up = false
 	} else if current.x-1 == next.x {
-		(*grid)[current.x][current.y].up = false
-		(*grid)[next.x][next.y].down = false
+		(*grid)[current.x][current.y].Up = false
+		(*grid)[next.x][next.y].Down = false
 	} else if current.y+1 == next.y {
-		(*grid)[current.x][current.y].right = false
-		(*grid)[next.x][next.y].left = false
+		(*grid)[current.x][current.y].Right = false
+		(*grid)[next.x][next.y].Left = false
 	} else if current.y-1 == next.y {
-		(*grid)[current.x][current.y].left = false
-		(*grid)[next.x][next.y].right = false
+		(*grid)[current.x][current.y].Left = false
+		(*grid)[next.x][next.y].Right = false
 	}
 }

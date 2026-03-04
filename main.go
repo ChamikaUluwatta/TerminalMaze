@@ -1,7 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"github.com/ChamikaUluwatta/TerminalMaze/generator"
+	"github.com/ChamikaUluwatta/TerminalMaze/render"
+)
 
 func main() {
-	fmt.Println("Hello Maza")
+	maze := generator.MazeGenerator(20)
+	render.RenderMaze(maze)
 }
