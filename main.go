@@ -6,6 +6,6 @@ import (
 )
 
 func main() {
-	maze := generator.MazeGenerator(20)
+	maze := generator.MazeGenerator(4)
 	render.RenderMaze(maze)
 }
