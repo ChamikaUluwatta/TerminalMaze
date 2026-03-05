@@ -1,11 +1,17 @@
 package main
 
 import (
-	"github.com/ChamikaUluwatta/TerminalMaze/generator"
-	"github.com/ChamikaUluwatta/TerminalMaze/render"
+	"fmt"
+	"os"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/ChamikaUluwatta/TerminalMaze/model"
 )
 
 func main() {
-	maze := generator.MazeGenerator(4)
-	render.RenderMaze(maze)
+	p := tea.NewProgram(model.InitialModel(4))
+	if _, err := p.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }
