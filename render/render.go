@@ -1,12 +1,12 @@
 package render
 
 import (
-	"fmt"
+	"strings"
 
 	"github.com/ChamikaUluwatta/TerminalMaze/generator"
 )
 
-func RenderMaze(maze generator.Maze) {
+func RenderMaze(maze generator.Maze) string {
 	size := maze.Size
 	rows := 2*size + 1
 	cols := 2*size + 1
@@ -45,8 +45,10 @@ func RenderMaze(maze generator.Maze) {
 
 	grid[0][2*maze.Start[1]+1] = ' '
 	grid[2*maze.End[0]+2][2*maze.End[1]+1] = ' '
-
+	var sb strings.Builder
 	for _, row := range grid {
-		fmt.Println(string(row))
+		sb.WriteString(string(row))
+		sb.WriteRune('\n')
 	}
+	return sb.String()
 }
