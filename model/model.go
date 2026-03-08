@@ -3,6 +3,8 @@ package model
 import (
 	"strconv"
 
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -18,6 +20,47 @@ const (
 	stateMaze
 )
 
+type menuKeyMap struct{}
+
+func (k menuKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "play")),
+		key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+	}
+}
+
+func (k menuKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{k.ShortHelp()}
+}
+
+type inputKeyMap struct{}
+
+func (k inputKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "confirm")),
+		key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+	}
+}
+
+func (k inputKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{k.ShortHelp()}
+}
+
+type mazeKeyMap struct{}
+
+func (k mazeKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		key.NewBinding(key.WithKeys("up", "down", "pgup", "pgdown"), key.WithHelp("↑/↓/pgup/pgdn", "scroll")),
+		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "regenerate")),
+		key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+	}
+}
+
+func (k mazeKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{k.ShortHelp()}
+}
+
 type Model struct {
 	maze     generator.Maze
 	size     int
@@ -26,9 +69,10 @@ type Model struct {
 	state    state
 	input    string
 	viewport viewport.Model
+	help     help.Model
 }
 
-func InitialModel(size int) Model {
+func InitialModel() Model {
 	vp := viewport.New(
 		viewport.WithWidth(80),
 		viewport.WithHeight(20),
@@ -36,6 +80,7 @@ func InitialModel(size int) Model {
 	return Model{
 		state:    stateMenu,
 		viewport: vp,
+		help:     help.New(),
 	}
 }
 
@@ -106,31 +151,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) updateMazeViewport() {
 	mazeText := render.RenderMazeWithLipgloss(m.maze)
 	availableHeight := max(m.height-3, 1)
-	mazeWidth := max(lipgloss.Width(mazeText), 1)
-	mazeHeight := max(lipgloss.Height(mazeText), 1)
 
-	m.viewport.SetWidth(min(m.width, mazeWidth))
-	m.viewport.SetHeight(min(availableHeight, mazeHeight))
-	m.viewport.SetContent(mazeText)
+	m.viewport.SetWidth(m.width)
+	m.viewport.SetHeight(availableHeight)
+	centered := lipgloss.Place(m.width, availableHeight, lipgloss.Center, lipgloss.Center, mazeText)
+	m.viewport.SetContent(centered)
 }
 
 func (m Model) View() tea.View {
-	var content, help string
+	var content string
+	var km help.KeyMap
 
 	switch m.state {
 	case stateMenu:
 		content = "Terminal Maze Generator\n\nPress 'p' to play"
-		help = "[p] play [q] quit"
+		km = menuKeyMap{}
 	case stateInput:
 		content = "Enter maze size (1-50):\n\n" + m.input + "█"
-		help = "[enter] confirm  [esc] back  [q] quit"
+		km = inputKeyMap{}
 	case stateMaze:
 		content = m.viewport.View()
-		help = "[up/down pgup/pgdn] scroll  [r] regenerate  [q] quit"
+		km = mazeKeyMap{}
 	}
 
-	helpBlock := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, help)
+	m.help.SetWidth(m.width)
+	helpView := m.help.View(km)
+	helpBlock := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, helpView)
 	mainBlock := lipgloss.Place(m.width, m.height-3, lipgloss.Center, lipgloss.Center, content)
 	s := lipgloss.JoinVertical(lipgloss.Left, mainBlock, "", helpBlock)
-	return tea.NewView(s)
+	v := tea.NewView(s)
+	v.AltScreen = true
+	return v
 }

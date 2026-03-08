@@ -59,7 +59,12 @@ func RenderMazeWithLipgloss(maze generator.Maze) string {
 
 	var sb strings.Builder
 	for _, row := range grid {
-		sb.WriteString(string(row))
+		for j, ch := range row {
+			sb.WriteRune(ch)
+			if j%2 == 1 {
+				sb.WriteRune(ch)
+			}
+		}
 		sb.WriteRune('\n')
 	}
 
