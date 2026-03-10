@@ -47,7 +47,12 @@ func RenderMaze(maze generator.Maze) string {
 	grid[2*maze.End[0]+2][2*maze.End[1]+1] = ' '
 	var sb strings.Builder
 	for _, row := range grid {
-		sb.WriteString(string(row))
+		for j, ch := range row {
+			sb.WriteRune(ch)
+			if j%2 == 1 {
+				sb.WriteRune(ch)
+			}
+		}
 		sb.WriteRune('\n')
 	}
 	return sb.String()

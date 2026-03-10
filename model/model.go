@@ -3,6 +3,8 @@ package model
 import (
 	"strconv"
 
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -16,19 +18,79 @@ const (
 	stateMenu state = iota
 	stateInput
 	stateMaze
+	stateWin
 )
 
-type Model struct {
-	maze     generator.Maze
-	size     int
-	width    int
-	height   int
-	state    state
-	input    string
-	viewport viewport.Model
+type menuKeyMap struct{}
+
+func (k menuKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "play")),
+		key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+	}
 }
 
-func InitialModel(size int) Model {
+func (k menuKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{k.ShortHelp()}
+}
+
+type inputKeyMap struct{}
+
+func (k inputKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "confirm")),
+		key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+	}
+}
+
+func (k inputKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{k.ShortHelp()}
+}
+
+type mazeKeyMap struct{}
+
+func (k mazeKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		key.NewBinding(key.WithKeys("up", "down", "left", "right"), key.WithHelp("↑/↓/←/→", "move")),
+		key.NewBinding(key.WithKeys("+", "-"), key.WithHelp("+/-", "zoom")),
+		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "regenerate")),
+		key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+	}
+}
+
+func (k mazeKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{k.ShortHelp()}
+}
+
+type winKeyMap struct{}
+
+func (k winKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "play again")),
+		key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+	}
+}
+
+func (k winKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{k.ShortHelp()}
+}
+
+type Model struct {
+	maze      generator.Maze
+	size      int
+	width     int
+	height    int
+	state     state
+	input     string
+	viewport  viewport.Model
+	help      help.Model
+	playerRow int
+	playerCol int
+	zoom      int
+}
+
+func InitialModel() Model {
 	vp := viewport.New(
 		viewport.WithWidth(80),
 		viewport.WithHeight(20),
@@ -36,6 +98,8 @@ func InitialModel(size int) Model {
 	return Model{
 		state:    stateMenu,
 		viewport: vp,
+		help:     help.New(),
+		zoom:     2,
 	}
 }
 
@@ -69,6 +133,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if err == nil && size > 0 && size <= 50 {
 					m.size = size
 					m.maze = generator.MazeGenerator(size)
+					m.playerRow = m.maze.Start[0]
+					m.playerCol = m.maze.Start[1]
 					m.updateMazeViewport()
 					m.viewport.GotoTop()
 					m.state = stateMaze
@@ -89,48 +155,136 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case stateMaze:
 			switch msg.String() {
+			case "up":
+				if !m.maze.Grid[m.playerRow][m.playerCol].Up {
+					m.playerRow--
+					m.updateMazeViewport()
+					if m.playerRow == m.maze.End[0] && m.playerCol == m.maze.End[1] {
+						m.state = stateWin
+					}
+				}
+				return m, nil
+			case "down":
+				if !m.maze.Grid[m.playerRow][m.playerCol].Down {
+					m.playerRow++
+					m.updateMazeViewport()
+					if m.playerRow == m.maze.End[0] && m.playerCol == m.maze.End[1] {
+						m.state = stateWin
+					}
+				}
+				return m, nil
+			case "left":
+				if !m.maze.Grid[m.playerRow][m.playerCol].Left {
+					m.playerCol--
+					m.updateMazeViewport()
+					if m.playerRow == m.maze.End[0] && m.playerCol == m.maze.End[1] {
+						m.state = stateWin
+					}
+				}
+				return m, nil
+			case "right":
+				if !m.maze.Grid[m.playerRow][m.playerCol].Right {
+					m.playerCol++
+					m.updateMazeViewport()
+					if m.playerRow == m.maze.End[0] && m.playerCol == m.maze.End[1] {
+						m.state = stateWin
+					}
+				}
+				return m, nil
+			case "+", "=":
+				if m.zoom < 5 {
+					m.zoom++
+					m.updateMazeViewport()
+				}
+				return m, nil
+			case "-":
+				if m.zoom > 1 {
+					m.zoom--
+					m.updateMazeViewport()
+				}
+				return m, nil
 			case "r":
 				m.input = ""
 				m.state = stateInput
+				return m, nil
 			case "q", "ctrl+c":
 				return m, tea.Quit
 			}
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
 			return m, cmd
+		case stateWin:
+			switch msg.String() {
+			case "r":
+				m.input = ""
+				m.state = stateInput
+			case "q", "ctrl+c":
+				return m, tea.Quit
+			}
 		}
 	}
 	return m, nil
 }
 
 func (m *Model) updateMazeViewport() {
-	mazeText := render.RenderMazeWithLipgloss(m.maze)
+	mazeText := render.RenderMazeWithLipgloss(m.maze, m.playerRow, m.playerCol, m.zoom)
 	availableHeight := max(m.height-3, 1)
-	mazeWidth := max(lipgloss.Width(mazeText), 1)
-	mazeHeight := max(lipgloss.Height(mazeText), 1)
 
-	m.viewport.SetWidth(min(m.width, mazeWidth))
-	m.viewport.SetHeight(min(availableHeight, mazeHeight))
-	m.viewport.SetContent(mazeText)
+	m.viewport.SetWidth(m.width)
+	m.viewport.SetHeight(availableHeight)
+	centered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, mazeText)
+	m.viewport.SetContent(centered)
+
+	vScale := 1
+	if m.zoom >= 3 {
+		vScale = m.zoom / 2
+	}
+	playerLine := 0
+	for r := 0; r < 2*m.playerRow+1; r++ {
+		if r%2 == 1 {
+			playerLine += vScale
+		} else {
+			playerLine++
+		}
+	}
+	playerLine += vScale / 2
+
+	margin := availableHeight / 4
+	topThreshold := m.viewport.YOffset() + margin
+	bottomThreshold := m.viewport.YOffset() + availableHeight - margin - 1
+
+	if playerLine < topThreshold {
+		m.viewport.SetYOffset(max(playerLine-margin, 0))
+	} else if playerLine > bottomThreshold {
+		m.viewport.SetYOffset(playerLine - availableHeight + margin + 1)
+	}
 }
 
 func (m Model) View() tea.View {
-	var content, help string
+	var content string
+	var km help.KeyMap
 
 	switch m.state {
 	case stateMenu:
 		content = "Terminal Maze Generator\n\nPress 'p' to play"
-		help = "[p] play [q] quit"
+		km = menuKeyMap{}
 	case stateInput:
 		content = "Enter maze size (1-50):\n\n" + m.input + "█"
-		help = "[enter] confirm  [esc] back  [q] quit"
+		km = inputKeyMap{}
 	case stateMaze:
 		content = m.viewport.View()
-		help = "[up/down pgup/pgdn] scroll  [r] regenerate  [q] quit"
+		km = mazeKeyMap{}
+	case stateWin:
+		content = "Congratulations! You solved the maze!\n\nPress 'r' to play again"
+		km = winKeyMap{}
 	}
 
-	helpBlock := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, help)
+	m.help.SetWidth(m.width)
+	helpView := m.help.View(km)
+	helpBlock := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, helpView)
 	mainBlock := lipgloss.Place(m.width, m.height-3, lipgloss.Center, lipgloss.Center, content)
 	s := lipgloss.JoinVertical(lipgloss.Left, mainBlock, "", helpBlock)
-	return tea.NewView(s)
+	v := tea.NewView(s)
+	v.AltScreen = true
+	return v
 }

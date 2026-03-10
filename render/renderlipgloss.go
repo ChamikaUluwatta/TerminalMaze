@@ -9,11 +9,14 @@ import (
 
 var (
 	wallStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#bd93f9")).
-		Bold(true)
+			Foreground(lipgloss.Color("#bd93f9")).
+			Bold(true)
+	playerStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ff5555")).
+			Bold(true)
 )
 
-func RenderMazeWithLipgloss(maze generator.Maze) string {
+func RenderMazeWithLipgloss(maze generator.Maze, playerRow, playerCol, zoom int) string {
 	size := maze.Size
 	rows := 2*size + 1
 	cols := 2*size + 1
@@ -57,13 +60,49 @@ func RenderMazeWithLipgloss(maze generator.Maze) string {
 	grid[0][2*maze.Start[1]+1] = ' '
 	grid[2*maze.End[0]+2][2*maze.End[1]+1] = ' '
 
-	var sb strings.Builder
-	for _, row := range grid {
-		sb.WriteString(string(row))
-		sb.WriteRune('\n')
+	playerGridRow := 2*playerRow + 1
+	playerGridCol := 2*playerCol + 1
+
+	repeatH := func(ch rune, odd bool) string {
+		if odd {
+			return strings.Repeat(string(ch), zoom)
+		}
+		return string(ch)
 	}
 
-	return wallStyle.Render(sb.String())
+	playerDot := "●" + strings.Repeat(" ", zoom-1)
+
+	var sb strings.Builder
+	for i, row := range grid {
+		vRepeat := 1
+		if i%2 == 1 && zoom >= 3 {
+			vRepeat = zoom / 2
+		}
+		for v := 0; v < vRepeat; v++ {
+			if i == playerGridRow && v == vRepeat/2 {
+				var before, after strings.Builder
+				for j, ch := range row {
+					if j < playerGridCol {
+						before.WriteString(repeatH(ch, j%2 == 1))
+					} else if j > playerGridCol {
+						after.WriteString(repeatH(ch, j%2 == 1))
+					}
+				}
+				sb.WriteString(wallStyle.Render(before.String()))
+				sb.WriteString(playerStyle.Render(playerDot))
+				sb.WriteString(wallStyle.Render(after.String()))
+			} else {
+				var line strings.Builder
+				for j, ch := range row {
+					line.WriteString(repeatH(ch, j%2 == 1))
+				}
+				sb.WriteString(wallStyle.Render(line.String()))
+			}
+			sb.WriteRune('\n')
+		}
+	}
+
+	return sb.String()
 }
 
 func cornerChar(up, down, left, right bool) rune {
