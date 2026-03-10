@@ -9,11 +9,14 @@ import (
 
 var (
 	wallStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#bd93f9")).
-		Bold(true)
+			Foreground(lipgloss.Color("#bd93f9")).
+			Bold(true)
+	playerStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#ff5555")).
+			Bold(true)
 )
 
-func RenderMazeWithLipgloss(maze generator.Maze) string {
+func RenderMazeWithLipgloss(maze generator.Maze, playerRow, playerCol int) string {
 	size := maze.Size
 	rows := 2*size + 1
 	cols := 2*size + 1
@@ -57,18 +60,43 @@ func RenderMazeWithLipgloss(maze generator.Maze) string {
 	grid[0][2*maze.Start[1]+1] = ' '
 	grid[2*maze.End[0]+2][2*maze.End[1]+1] = ' '
 
+	playerGridRow := 2*playerRow + 1
+	playerGridCol := 2*playerCol + 1
+
 	var sb strings.Builder
-	for _, row := range grid {
-		for j, ch := range row {
-			sb.WriteRune(ch)
-			if j%2 == 1 {
-				sb.WriteRune(ch)
+	for i, row := range grid {
+		if i == playerGridRow {
+			var before, after strings.Builder
+			for j, ch := range row {
+				if j < playerGridCol {
+					before.WriteRune(ch)
+					if j%2 == 1 {
+						before.WriteRune(ch)
+					}
+				} else if j > playerGridCol {
+					after.WriteRune(ch)
+					if j%2 == 1 {
+						after.WriteRune(ch)
+					}
+				}
 			}
+			sb.WriteString(wallStyle.Render(before.String()))
+			sb.WriteString(playerStyle.Render("● "))
+			sb.WriteString(wallStyle.Render(after.String()))
+		} else {
+			var line strings.Builder
+			for j, ch := range row {
+				line.WriteRune(ch)
+				if j%2 == 1 {
+					line.WriteRune(ch)
+				}
+			}
+			sb.WriteString(wallStyle.Render(line.String()))
 		}
 		sb.WriteRune('\n')
 	}
 
-	return wallStyle.Render(sb.String())
+	return sb.String()
 }
 
 func cornerChar(up, down, left, right bool) rune {

@@ -18,6 +18,7 @@ const (
 	stateMenu state = iota
 	stateInput
 	stateMaze
+	stateWin
 )
 
 type menuKeyMap struct{}
@@ -51,7 +52,7 @@ type mazeKeyMap struct{}
 
 func (k mazeKeyMap) ShortHelp() []key.Binding {
 	return []key.Binding{
-		key.NewBinding(key.WithKeys("up", "down", "pgup", "pgdown"), key.WithHelp("↑/↓/pgup/pgdn", "scroll")),
+		key.NewBinding(key.WithKeys("up", "down", "left", "right"), key.WithHelp("↑/↓/←/→", "move")),
 		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "regenerate")),
 		key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 	}
@@ -61,15 +62,30 @@ func (k mazeKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{k.ShortHelp()}
 }
 
+type winKeyMap struct{}
+
+func (k winKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "play again")),
+		key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+	}
+}
+
+func (k winKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{k.ShortHelp()}
+}
+
 type Model struct {
-	maze     generator.Maze
-	size     int
-	width    int
-	height   int
-	state    state
-	input    string
-	viewport viewport.Model
-	help     help.Model
+	maze      generator.Maze
+	size      int
+	width     int
+	height    int
+	state     state
+	input     string
+	viewport  viewport.Model
+	help      help.Model
+	playerRow int
+	playerCol int
 }
 
 func InitialModel() Model {
@@ -114,6 +130,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if err == nil && size > 0 && size <= 50 {
 					m.size = size
 					m.maze = generator.MazeGenerator(size)
+					m.playerRow = m.maze.Start[0]
+					m.playerCol = m.maze.Start[1]
 					m.updateMazeViewport()
 					m.viewport.GotoTop()
 					m.state = stateMaze
@@ -134,28 +152,84 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case stateMaze:
 			switch msg.String() {
+			case "up":
+				if !m.maze.Grid[m.playerRow][m.playerCol].Up {
+					m.playerRow--
+					m.updateMazeViewport()
+					if m.playerRow == m.maze.End[0] && m.playerCol == m.maze.End[1] {
+						m.state = stateWin
+					}
+				}
+				return m, nil
+			case "down":
+				if !m.maze.Grid[m.playerRow][m.playerCol].Down {
+					m.playerRow++
+					m.updateMazeViewport()
+					if m.playerRow == m.maze.End[0] && m.playerCol == m.maze.End[1] {
+						m.state = stateWin
+					}
+				}
+				return m, nil
+			case "left":
+				if !m.maze.Grid[m.playerRow][m.playerCol].Left {
+					m.playerCol--
+					m.updateMazeViewport()
+					if m.playerRow == m.maze.End[0] && m.playerCol == m.maze.End[1] {
+						m.state = stateWin
+					}
+				}
+				return m, nil
+			case "right":
+				if !m.maze.Grid[m.playerRow][m.playerCol].Right {
+					m.playerCol++
+					m.updateMazeViewport()
+					if m.playerRow == m.maze.End[0] && m.playerCol == m.maze.End[1] {
+						m.state = stateWin
+					}
+				}
+				return m, nil
 			case "r":
 				m.input = ""
 				m.state = stateInput
+				return m, nil
 			case "q", "ctrl+c":
 				return m, tea.Quit
 			}
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
 			return m, cmd
+		case stateWin:
+			switch msg.String() {
+			case "r":
+				m.input = ""
+				m.state = stateInput
+			case "q", "ctrl+c":
+				return m, tea.Quit
+			}
 		}
 	}
 	return m, nil
 }
 
 func (m *Model) updateMazeViewport() {
-	mazeText := render.RenderMazeWithLipgloss(m.maze)
+	mazeText := render.RenderMazeWithLipgloss(m.maze, m.playerRow, m.playerCol)
 	availableHeight := max(m.height-3, 1)
 
 	m.viewport.SetWidth(m.width)
 	m.viewport.SetHeight(availableHeight)
-	centered := lipgloss.Place(m.width, availableHeight, lipgloss.Center, lipgloss.Center, mazeText)
+	centered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, mazeText)
 	m.viewport.SetContent(centered)
+
+	playerLine := 2*m.playerRow + 1
+	margin := availableHeight / 4
+	topThreshold := m.viewport.YOffset() + margin
+	bottomThreshold := m.viewport.YOffset() + availableHeight - margin - 1
+
+	if playerLine < topThreshold {
+		m.viewport.SetYOffset(max(playerLine-margin, 0))
+	} else if playerLine > bottomThreshold {
+		m.viewport.SetYOffset(playerLine - availableHeight + margin + 1)
+	}
 }
 
 func (m Model) View() tea.View {
@@ -172,6 +246,9 @@ func (m Model) View() tea.View {
 	case stateMaze:
 		content = m.viewport.View()
 		km = mazeKeyMap{}
+	case stateWin:
+		content = "Congratulations! You solved the maze!\n\nPress 'r' to play again"
+		km = winKeyMap{}
 	}
 
 	m.help.SetWidth(m.width)
