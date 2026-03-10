@@ -53,6 +53,7 @@ type mazeKeyMap struct{}
 func (k mazeKeyMap) ShortHelp() []key.Binding {
 	return []key.Binding{
 		key.NewBinding(key.WithKeys("up", "down", "left", "right"), key.WithHelp("↑/↓/←/→", "move")),
+		key.NewBinding(key.WithKeys("+", "-"), key.WithHelp("+/-", "zoom")),
 		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "regenerate")),
 		key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 	}
@@ -86,6 +87,7 @@ type Model struct {
 	help      help.Model
 	playerRow int
 	playerCol int
+	zoom      int
 }
 
 func InitialModel() Model {
@@ -97,6 +99,7 @@ func InitialModel() Model {
 		state:    stateMenu,
 		viewport: vp,
 		help:     help.New(),
+		zoom:     2,
 	}
 }
 
@@ -188,6 +191,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				return m, nil
+			case "+", "=":
+				if m.zoom < 5 {
+					m.zoom++
+					m.updateMazeViewport()
+				}
+				return m, nil
+			case "-":
+				if m.zoom > 1 {
+					m.zoom--
+					m.updateMazeViewport()
+				}
+				return m, nil
 			case "r":
 				m.input = ""
 				m.state = stateInput
@@ -212,7 +227,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) updateMazeViewport() {
-	mazeText := render.RenderMazeWithLipgloss(m.maze, m.playerRow, m.playerCol)
+	mazeText := render.RenderMazeWithLipgloss(m.maze, m.playerRow, m.playerCol, m.zoom)
 	availableHeight := max(m.height-3, 1)
 
 	m.viewport.SetWidth(m.width)
@@ -220,7 +235,20 @@ func (m *Model) updateMazeViewport() {
 	centered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, mazeText)
 	m.viewport.SetContent(centered)
 
-	playerLine := 2*m.playerRow + 1
+	vScale := 1
+	if m.zoom >= 3 {
+		vScale = m.zoom / 2
+	}
+	playerLine := 0
+	for r := 0; r < 2*m.playerRow+1; r++ {
+		if r%2 == 1 {
+			playerLine += vScale
+		} else {
+			playerLine++
+		}
+	}
+	playerLine += vScale / 2
+
 	margin := availableHeight / 4
 	topThreshold := m.viewport.YOffset() + margin
 	bottomThreshold := m.viewport.YOffset() + availableHeight - margin - 1

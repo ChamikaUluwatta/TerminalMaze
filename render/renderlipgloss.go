@@ -16,7 +16,7 @@ var (
 			Bold(true)
 )
 
-func RenderMazeWithLipgloss(maze generator.Maze, playerRow, playerCol int) string {
+func RenderMazeWithLipgloss(maze generator.Maze, playerRow, playerCol, zoom int) string {
 	size := maze.Size
 	rows := 2*size + 1
 	cols := 2*size + 1
@@ -63,37 +63,43 @@ func RenderMazeWithLipgloss(maze generator.Maze, playerRow, playerCol int) strin
 	playerGridRow := 2*playerRow + 1
 	playerGridCol := 2*playerCol + 1
 
+	repeatH := func(ch rune, odd bool) string {
+		if odd {
+			return strings.Repeat(string(ch), zoom)
+		}
+		return string(ch)
+	}
+
+	playerDot := "●" + strings.Repeat(" ", zoom-1)
+
 	var sb strings.Builder
 	for i, row := range grid {
-		if i == playerGridRow {
-			var before, after strings.Builder
-			for j, ch := range row {
-				if j < playerGridCol {
-					before.WriteRune(ch)
-					if j%2 == 1 {
-						before.WriteRune(ch)
-					}
-				} else if j > playerGridCol {
-					after.WriteRune(ch)
-					if j%2 == 1 {
-						after.WriteRune(ch)
-					}
-				}
-			}
-			sb.WriteString(wallStyle.Render(before.String()))
-			sb.WriteString(playerStyle.Render("● "))
-			sb.WriteString(wallStyle.Render(after.String()))
-		} else {
-			var line strings.Builder
-			for j, ch := range row {
-				line.WriteRune(ch)
-				if j%2 == 1 {
-					line.WriteRune(ch)
-				}
-			}
-			sb.WriteString(wallStyle.Render(line.String()))
+		vRepeat := 1
+		if i%2 == 1 && zoom >= 3 {
+			vRepeat = zoom / 2
 		}
-		sb.WriteRune('\n')
+		for v := 0; v < vRepeat; v++ {
+			if i == playerGridRow && v == vRepeat/2 {
+				var before, after strings.Builder
+				for j, ch := range row {
+					if j < playerGridCol {
+						before.WriteString(repeatH(ch, j%2 == 1))
+					} else if j > playerGridCol {
+						after.WriteString(repeatH(ch, j%2 == 1))
+					}
+				}
+				sb.WriteString(wallStyle.Render(before.String()))
+				sb.WriteString(playerStyle.Render(playerDot))
+				sb.WriteString(wallStyle.Render(after.String()))
+			} else {
+				var line strings.Builder
+				for j, ch := range row {
+					line.WriteString(repeatH(ch, j%2 == 1))
+				}
+				sb.WriteString(wallStyle.Render(line.String()))
+			}
+			sb.WriteRune('\n')
+		}
 	}
 
 	return sb.String()
