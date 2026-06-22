@@ -27,7 +27,7 @@ go run main.go
 
 ---
 
-## Screenshots
+## UI
 
 ![Maze example 1](screenshots/Maze%20example%201.png)
 
